@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Konder Shop</title>
+  <!-- Telegram Web App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070814;
+      --card-bg: rgba(18, 20, 42, 0.75);
+      --card-border: rgba(139, 92, 246, 0.28);
+      --accent-purple: #8B5CF6;
+      --accent-glow: #A78BFA;
+      --accent-cyan: #06B6D4;
+      --accent-green: #10B981;
+      --accent-red: #EF4444;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--bg);
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      /* Исправление: используем высоту вьюпорта Telegram, если она есть */
+      height: var(--tg-viewport-height, 100vh);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-wrapper {
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: radial-gradient(circle at 10% 10%, rgba(139, 92, 246, 0.22), transparent 40%),
+                  radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.16), transparent 35%),
+                  radial-gradient(circle at 50% 95%, rgba(16, 185, 129, 0.1), transparent 30%);
+      background-color: var(--bg);
+    }
+
+    .brand-title {
+      font-family: 'Orbitron', sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    .page-scroll {
+      flex: 1;
+      overflow-y: auto;
+      /* Добавлено место снизу, чтобы контент не прятался за панелью */
+      padding: 16px 18px 100px;
+    }
+    .page-scroll::-webkit-scrollbar { width: 3px; }
+    .page-scroll::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.3); border-radius: 4px; }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+    }
+
+    .glow-btn {
+      box-shadow: 0 4px 18px rgba(139, 92, 246, 0.35);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glow-btn:active { transform: scale(0.97); }
+
+    .bottom-sheet {
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-open .bottom-sheet { transform: translateY(0); }
+    .modal-open .modal-backdrop { opacity: 1; pointer-events: auto; }
+
+    .star-btn { font-size: 26px; color: #4B5563; cursor: pointer; transition: transform 0.15s; }
+    .star-btn:active { transform: scale(1.2); }
+    .star-btn.active { color: #F59E0B; text-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+  <header class="p-4 flex items-center justify-between border-b border-white/10 bg-[#0B0C1A]/85 backdrop-blur-md relative z-30">
+    <div class="flex items-center space-x-2">
+      <span class="brand-title text-base font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-cyan-300">
+        KONDER SHOP 💰
+      </span>
+    </div>
+
+    <!-- Переключатель роли для предпросмотра + Telegram ID индикатор -->
+    <div class="flex items-center space-x-2">
+      <button onclick="toggleRolePreview()" id="roleBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold tracking-wide transition-all border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+        <span id="roleIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="roleBadgeText">CLIENT</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- КОНТЕЙНЕР СТРАНИЦ -->
+  <div class="page-scroll">
+    <!-- СТРАНИЦА: КАТАЛОГ -->
+    <div id="view-catalog" class="space-y-5">
+      <!-- Индивидуальная разработка -->
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-cyan-400 mb-3 flex items-center">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 mr-2"></span> Индивидуальная разработка
+        </div>
+        <div class="space-y-3" id="custom-services-container"></div>
+      </div>
+
+      <!-- Готовые шаблоны -->
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-3 flex items-center">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span> Готовые шаблоны
+        </div>
+        <div class="space-y-2.5" id="templates-container"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ОТЗЫВЫ -->
+    <div id="view-reviews" class="hidden space-y-4">
+      <div class="glass-card p-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white">Репутация Konder Shop</h2>
+          <p class="text-xs text-gray-400">Оценки реальных заказчиков</p>
+        </div>
+        <div class="flex items-center bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl">
+          <span class="text-amber-400 text-sm mr-1.5">★</span>
+          <span id="avgRatingDisplay" class="font-bold text-amber-200 text-sm">5.0</span>
+        </div>
+      </div>
+
+      <!-- Список опубликованных отзывов -->
+      <div id="reviews-list" class="space-y-3"></div>
+
+      <!-- Форма отзыва строго после завершения заказа -->
+      <div class="glass-card p-4 border border-purple-500/30">
+        <h3 class="text-sm font-bold text-white mb-1">Оставить отзыв</h3>
+        
+        <div id="review-lock-container" class="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-300 leading-relaxed">
+          🔒 Оставить отзыв можно только по завершённому заказу после ввода администратором команды <code class="text-white font-mono bg-black/40 px-1 py-0.5 rounded">/end</code> в чате.
+        </div>
+
+        <form id="review-unlocked-form" onsubmit="handleReviewSubmit(event)" class="hidden space-y-3 mt-2">
+          <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Выполненный товар / услуга</label>
+            <select id="revProductSelect" class="w-full bg-[#0B0C1A] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"></select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Количество звезд (1-5)</label>
+            <div class="flex space-x-1" id="starSelectorBox">
+              <span class="star-btn active" onclick="setFormStars(1)">★</span>
+              <span class="star-btn active" onclick="setFormStars(2)">★</span>
+              <span class="star-btn active" onclick="setFormStars(3)">★</span>
+              <span class="star-btn active" onclick="setFormStars(4)">★</span>
+              <span class="star-btn active" onclick="setFormStars(5)">★</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Комментарий к выполненной работе</label>
+            <textarea id="revCommentInput" rows="3" required placeholder="Напишите впечатления о скорости, качестве кода и общении..." class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"></textarea>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl glow-btn">
+            Опубликовать отзыв
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ПОДДЕРЖКА -->
+    <div id="view-support" class="hidden space-y-4">
+      <!-- Клиентская форма -->
+      <div id="support-client-view" class="glass-card p-4 space-y-3">
+        <div>
+          <h2 class="text-base font-bold text-white">Техническая поддержка</h2>
+          <p class="text-xs text-gray-400">Столкнулись с трудностями? Напишите тикет.</p>
+        </div>
+
+        <form onsubmit="handleSendTicket(event)" class="space-y-3">
+          <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Ваш Telegram @username</label>
+            <input type="text" id="ticketUserInp" required placeholder="@username" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="block text-[11px] text-gray-400 mb-1">Суть проблемы</label>
+            <textarea id="ticketMsgInp" rows="4" required placeholder="Опишите детально вопрос или баг..." class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"></textarea>
+          </div>
+          <button type="submit" class="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl glow-btn">
+            Отправить тикет
+          </button>
+        </form>
+      </div>
+
+      <!-- Владельческий список тикетов -->
+      <div id="support-owner-view" class="hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-purple-300 uppercase tracking-wide">Входящие тикеты клиентов</h2>
+          <span id="ticketCountBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono">0</span>
+        </div>
+        <div id="owner-tickets-list" class="space-y-2.5"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ЗАКАЗЫ (ТОЛЬКО ВЛАДЕЛЕЦ) -->
+    <div id="view-orders" class="hidden space-y-3">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h2 class="text-base font-bold text-white">Входящие заказы</h2>
+          <p class="text-xs text-gray-400">Сверка платежей и запуск разработки</p>
+        </div>
+        <span class="text-[10px] px-2.5 py-1 rounded bg-red-500/20 border border-red-500/40 text-red-300 font-mono font-bold">ADMIN VIEW</span>
+      </div>
+
+      <div id="orders-list-container" class="space-y-3"></div>
+    </div>
+
+    <!-- СТРАНИЦА: АДМИН-ПАНЕЛЬ (ТОЛЬКО ВЛАДЕЛЕЦ) -->
+    <div id="view-admin" class="hidden space-y-4">
+      <div class="glass-card p-4 space-y-3">
+        <div class="flex items-center justify-between border-b border-white/5 pb-2">
+          <h3 class="text-sm font-bold text-purple-300">Управление ценами товаров</h3>
+          <span class="text-[10px] text-gray-400">При снижении появится -%</span>
+        </div>
+        <div id="admin-prices-list" class="space-y-2.5"></div>
+      </div>
+
+      <!-- Черный список -->
+      <div class="glass-card p-4 space-y-3 border border-red-500/20">
+        <h3 class="text-sm font-bold text-red-400">Черный список (@username)</h3>
+        <div class="flex space-x-2">
+          <input type="text" id="blacklistInput" placeholder="@username" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500">
+          <button onclick="handleBanUser()" class="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all">
+            Бан
+          </button>
+        </div>
+        <div id="bannedUsersContainer" class="text-xs text-gray-400 flex flex-wrap gap-1.5 pt-1"></div>
+      </div>
+    </div>
+
+    <!-- СТРАНИЦА: ЧАТ -->
+    <div id="view-chat" class="hidden space-y-3">
+      <div class="glass-card p-3 flex items-center justify-between border-b border-white/10">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-cyan-500 flex items-center justify-center font-bold text-xs text-white shadow-md">
+            K
+          </div>
+          <div>
+            <div id="chatCompanionTitle" class="text-xs font-bold text-white">Konder Shop Dev</div>
+            <div class="text-[10px] text-emerald-400 flex items-center">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> онлайн
+            </div>
+          </div>
+        </div>
+        <div class="text-[10px] bg-white/10 text-purple-200 px-2 py-0.5 rounded font-mono">
+          Команда сдачи: /end
+        </div>
+      </div>
+
+      <!-- Окно сообщений -->
+      <div id="chatMessagesBox" class="glass-card p-3 space-y-2 h-[340px] overflow-y-auto"></div>
+
+      <!-- Ввод сообщения -->
+      <form onsubmit="handleSendChat(event)" class="flex space-x-2">
+        <input type="text" id="chatTextInput" placeholder="Сообщение... (владелец: /end для сдачи)" class="flex-1 bg-white/10 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-400 placeholder-gray-400">
+        <button type="submit" class="px-4 bg-purple-600 text-white rounded-xl text-xs font-bold glow-btn">
+          ➤
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (ТАББАР) -->
+  <!-- Исправление: панель теперь жестко фиксируется внизу -->
+  <nav class="fixed bottom-0 w-full max-w-[480px] h-[68px] bg-[#070814]/95 backdrop-blur-xl border-t border-white/10 flex justify-around items-center px-1 z-50">
+    <button class="nav-tab active flex flex-col items-center justify-center text-purple-400 text-[10px] font-medium w-14" onclick="switchNavTab('catalog')" data-tab="catalog">
+      <span class="text-base mb-0.5">🏠</span> Главная
+    </button>
+    <button class="nav-tab flex flex-col items-center justify-center text-gray-400 text-[10px] font-medium w-14" onclick="switchNavTab('reviews')" data-tab="reviews">
+      <span class="text-base mb-0.5">⭐</span> Отзывы
+    </button>
+    <button class="nav-tab flex flex-col items-center justify-center text-gray-400 text-[10px] font-medium w-14" onclick="switchNavTab('support')" data-tab="support">
+      <span class="text-base mb-0.5">🎧</span> Помощь
+    </button>
+    <!-- Таб Заказы (только Владелец) -->
+    <button id="navTabOrders" class="nav-tab hidden flex flex-col items-center justify-center text-gray-400 text-[10px] font-medium w-14 relative" onclick="switchNavTab('orders')" data-tab="orders">
+      <span id="ordersRedBadge" class="absolute -top-1 right-2 bg-red-500 text-white font-bold text-[9px] px-1.5 py-0.2 rounded-full border border-[#070814] hidden">0</span>
+      <span class="text-base mb-0.5">📦</span> Заказы
+    </button>
+    <!-- Таб Админка (только Владелец) -->
+    <button id="navTabAdmin" class="nav-tab hidden flex flex-col items-center justify-center text-gray-400 text-[10px] font-medium w-14" onclick="switchNavTab('admin')" data-tab="admin">
+      <span class="text-base mb-0.5">⚙️</span> Админка
+    </button>
+    <!-- Таб Чат -->
+    <button id="navTabChat" class="nav-tab flex flex-col items-center justify-center text-gray-400 text-[10px] font-medium w-14" onclick="switchNavTab('chat')" data-tab="chat">
+      <span class="text-base mb-0.5">💬</span> Чат
+    </button>
+  </nav>
+
+  <!-- МОДАЛЬНОЕ ОКНО ОФОРМЛЕНИЯ ЗАКАЗА -->
+  <div id="orderModalBackdrop" class="fixed inset-0 z-[60] flex flex-col justify-end hidden">
+    <div class="modal-backdrop absolute inset-0 bg-black/80 backdrop-blur-sm opacity-0 transition-opacity" onclick="closeOrderModal()"></div>
+    
+    <div class="bottom-sheet glass-card w-full max-w-md mx-auto rounded-t-3xl border-b-0 border-x-0 relative z-[60] flex flex-col max-h-[90vh] bg-[#0c0e22]">
+      <div class="w-full flex justify-center pt-2.5 pb-1">
+        <div class="w-10 h-1 bg-gray-500/40 rounded-full"></div>
+      </div>
+
+      <div class="p-4 overflow-y-auto space-y-3.5 flex-1">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 id="modalProductTitle" class="text-base font-bold text-white">Оформление заказа</h3>
+            <p class="text-[11px] text-gray-400">Выберите дополнительные опции при необходимости</p>
+          </div>
+          <button onclick="closeOrderModal()" class="text-gray-400 hover:text-white p-1 text-sm font-bold">✕</button>
+        </div>
+
+        <!-- Чекбоксы доп. услуг -->
+        <div id="addonsContainer" class="space-y-2"></div>
+
+        <!-- Поле краткого ТЗ (защита от нецелевых/рофельных заказов) -->
+        <div class="space-y-1">
+          <label class="block text-[11px] font-bold text-purple-200">
+            Краткое ТЗ / суть задачи <span class="text-red-400">*</span> (мин. 30 знаков)
+          </label>
+          <textarea id="orderBriefInput" rows="3" oninput="validateOrderForm()" placeholder="Опишите сценарии бота или структуру мини-аппа..." class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 resize-none"></textarea>
+          <div id="briefLengthCounter" class="text-[10px] text-gray-400 text-right">0 / 30 символов</div>
+        </div>
+
+        <!-- Реквизиты Сбера -->
+        <div class="bg-purple-950/30 border border-purple-500/30 p-3 rounded-xl space-y-2">
+          <div class="flex justify-between items-center text-[11px]">
+            <span class="text-purple-200 font-semibold">Реквизиты (Сбербанк):</span>
+            <button type="button" onclick="copyCardNumber()" class="text-cyan-300 underline font-mono text-[10px]">Копировать</button>
+          </div>
+          <div class="font-mono text-sm tracking-wider text-white font-bold bg-black/50 py-1.5 px-3 rounded-lg border border-white/10 flex justify-between">
+            <span id="sberCardNumber">2202202361617339</span>
+            <span class="text-[10px] text-gray-400">СБЕР</span>
+          </div>
+          <div class="space-y-2 pt-1">
+            <div>
+              <label class="block text-[10px] text-gray-300 mb-0.5">Имя получателя/плательщика (например, Иванов В.):</label>
+              <input type="text" id="orderSenderName" oninput="validateOrderForm()" placeholder="Иванов В." class="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500">
+            </div>
+            <div>
+              <label class="block text-[10px] text-gray-300 mb-0.5">Ваш Telegram @username:</label>
+              <input type="text" id="orderSenderTg" oninput="validateOrderForm()" placeholder="@username" class="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Предупреждение о бане за фейк-оплату -->
+        <div class="bg-red-500/10 border border-red-500/40 p-2.5 rounded-xl text-[11px] text-red-300 leading-snug">
+          ⚠️ <b>Внимание:</b> Нажатие кнопки без реального перевода денег или отправка спам-заявок карается немедленным перманентным баном по вашему Telegram ID и @username без права обжалования.
+        </div>
+
+        <!-- Чекбокс согласия с правилами -->
+        <label class="flex items-start space-x-2.5 text-xs text-gray-300 cursor-pointer pt-1">
+          <input type="checkbox" id="orderAgreeRules" onchange="validateOrderForm()" class="mt-0.5 accent-purple-600 rounded">
+          <span class="select-none leading-tight">
+            Я ознакомился с <span onclick="openRulesModal(event)" class="text-purple-400 underline font-semibold cursor-pointer">правилами торговли Konder Shop</span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Итог и кнопка оплаты -->
+      <div class="p-4 border-t border-white/10 bg-black/60 flex items-center justify-between">
+        <div>
+          <div class="text-[10px] text-gray-400">Итоговая стоимость:</div>
+          <div class="text-lg font-bold text-white"><span id="orderTotalDisplay">0</span> ₽</div>
+        </div>
+        <button id="orderPaySubmitBtn" disabled onclick="handleOrderSubmit()" class="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl glow-btn disabled:opacity-40 disabled:cursor-not-allowed">
+          Я перевёл <span id="btnPayTotalDisplay">0</span> ₽
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА ПРАВИЛ ТОРГОВЛИ -->
+  <div id="rulesModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+    <div class="glass-card max-w-sm w-full p-4 space-y-3 bg-[#0d0f26]">
+      <h3 class="text-sm font-bold text-purple-300 flex items-center">
+        <span>📜</span> <span class="ml-2">Правила торговли Konder Shop</span>
+      </h3>
+      <div class="text-xs text-gray-300 space-y-2 leading-relaxed max-h-56 overflow-y-auto pr-1">
+        <p><b>1. Профиль разработки:</b> Konder Shop выполняет заказы исключительно по разработке Telegram-ботов и веб-приложений (Mini Apps). Нецелевые заявки аннулируются.</p>
+        <p><b>2. Оплата:</b> 100% предоплата на Сбербанк. Работа начинается только после ручного подтверждения платежа администратором.</p>
+        <p><b>3. Правки:</b> До 3 бесплатных итераций правок в рамках согласованного ТЗ.</p>
+        <p><b>4. Завершение сделки:</b> После сдачи проекта владелец пишет команду <code>/end</code> в чат, открывая клиенту доступ к оценке.</p>
+      </div>
+      <button onclick="closeRulesModal()" class="w-full py-2 bg-purple-600 text-white font-bold text-xs rounded-xl">
+        Понятно
+      </button>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА ПРОСМОТРА ТИКЕТА ДЛЯ ВЛАДЕЛЬЦА -->
+  <div id="ticketInspectModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+    <div class="glass-card max-w-sm w-full p-4 space-y-3 bg-[#0d0f26]">
+      <div class="flex justify-between items-start">
+        <div>
+          <span id="inspectTicketTime" class="text-[10px] text-gray-400 font-mono">12:00</span>
+          <h4 id="inspectTicketUser" class="text-sm font-bold text-purple-300">@username</h4>
+        </div>
+        <button onclick="closeTicketInspect()" class="text-gray-400 hover:text-white text-xs font-bold">✕</button>
+      </div>
+      <div class="bg-black/40 p-3 rounded-xl border border-white/5 text-xs text-gray-200 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto" id="inspectTicketText"></div>
+      <button onclick="closeTicketInspect()" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl">
+        Закрыть
+      </button>
+    </div>
+  </div>
+
+  <!-- УВЕДОМЛЕНИЕ (ALERT БЕЗ alert()) -->
+  <div id="inAppAlert" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden p-4">
+    <div class="glass-card max-w-xs w-full p-4 text-center space-y-2.5 bg-[#0f122e] border border-purple-500/40">
+      <div class="w-10 h-10 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center mx-auto text-lg font-bold">
+        ⚡
+      </div>
+      <h4 id="inAppAlertTitle" class="text-sm font-bold text-white">Уведомление</h4>
+      <p id="inAppAlertMsg" class="text-xs text-gray-300 leading-relaxed"></p>
+      <button onclick="closeInAppAlert()" class="w-full py-2 bg-purple-600 text-white font-bold text-xs rounded-xl glow-btn">
+        Хорошо
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Твой Telegram ID
+  const MASTER_ADMIN_ID = 1619490891;
+
+  // Базовые первоначальные цены
+  const DEFAULT_PRICES = {
+    bot: 200,
+    miniapp: 350,
+    shop: 150,
+    clicker: 250,
+    autopay: 100
+  };
+
+  // Товары
+  const PRODUCTS_CATALOG = {
+    bot: {
+      type: 'custom',
+      title: 'Разработка Telegram-бота',
+      desc: 'Архитектура сценариев, кнопочные меню, базы данных и рассылки.',
+      addons: [
+        { id: 'pay', name: 'Подключение онлайн-оплаты', price: 100 },
+        { id: 'host', name: 'Деплой на хостинг (бесплатный или ваш)', price: 100 },
+        { id: 'design', name: 'Индивидуальный дизайн', price: 150 },
+        { id: 'express', name: '⚡ Экспресс-заказ (2-4 часа)', price: 200 }
+      ]
+    },
+    miniapp: {
+      type: 'custom',
+      title: 'Разработка Mini App (TMA)',
+      desc: 'Современный интерактивный веб-интерфейс внутри Telegram на JS/HTML.',
+      addons: [
+        { id: 'pay', name: 'Подключение онлайн-оплаты', price: 100 },
+        { id: 'host', name: 'Деплой с SSL-сертификатом', price: 100 },
+        { id: 'design', name: 'Индивидуальный дизайн UI/UX', price: 150 },
+        { id: 'express', name: '⚡ Экспресс-заказ (2-4 часа)', price: 200 }
+      ]
+    },
+    shop: {
+      type: 'template',
+      title: 'Готовый магазин (Shop Bot)',
+      desc: 'Бот с витриной, корзиной и оформлением заказов.',
+      addons: [
+        { id: 'host', name: 'Помощь с запуском на сервере', price: 100 },
+        { id: 'design', name: 'Кастомизация под ваш бренд', price: 150 }
+      ]
+    },
+    clicker: {
+      type: 'template',
+      title: 'Шаблон Кликера (Mini App)',
+      desc: 'Тапалка монет со счетчиком и визуальными анимациями.',
+      addons: [
+        { id: 'host', name: 'Публикация на хостинге', price: 100 },
+        { id: 'design', name: 'Замена графики монет и фонов', price: 150 }
+      ]
+    },
+    autopay: {
+      type: 'template',
+      title: 'Бот автоприёма заявок',
+      desc: 'Моментальное одобрение инвайтов в закрытые Telegram каналы.',
+      addons: [
+        { id: 'host', name: 'Запуск бота 24/7', price: 100 },
+        { id: 'design', name: 'Оформление приветственного поста', price: 150 }
+      ]
+    }
+  };
+
+  // Локальное хранилище состояния
+  let state = {
+    isOwner: false, // Флаг владельца
+    prices: JSON.parse(localStorage.getItem('konder_prices') || JSON.stringify(DEFAULT_PRICES)),
+    bannedUsers: JSON.parse(localStorage.getItem('konder_bans') || '[]'),
+    orders: JSON.parse(localStorage.getItem('konder_orders') || '[]'),
+    tickets: JSON.parse(localStorage.getItem('konder_tickets') || '[]'),
+    reviews: JSON.parse(localStorage.getItem('konder_reviews') || '[]'),
+    chatMessages: JSON.parse(localStorage.getItem('konder_chat') || '[]'),
+    reviewedOrderIds: JSON.parse(localStorage.getItem('konder_reviewed_order_ids') || '[]')
+  };
+
+  let selectedOrderProductKey = null;
+  let formSelectedStars = 5;
+
+  function initApp() {
+    // Проверка Telegram WebApp SDK
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.initDataUnsafe?.user?.id === MASTER_ADMIN_ID) {
+        state.isOwner = true;
+      }
+    }
+
+    renderCatalog();
+    renderReviews();
+    renderTickets();
+    renderOrders();
+    renderAdminPanel();
+    renderChat();
+    updateOwnerBadges();
+    syncRoleUI();
+  }
+
+  // Переключатель роли для удобного live preview
+  function toggleRolePreview() {
+    state.isOwner = !state.isOwner;
+    syncRoleUI();
+    showInAppAlert(
+      state.isOwner ? 'Режим Владельца (ID: 1619490891)' : 'Режим Клиента',
+      state.isOwner 
+        ? 'Открыт доступ к вкладкам Заказы и Админка, просмотру тикетов и команде /end в чате.'
+        : 'Включен вид обычного покупателя. Админ-вкладки скрыты.'
+    );
+  }
+
+  function syncRoleUI() {
+    const badge = document.getElementById('roleBadge');
+    const badgeText = document.getElementById('roleBadgeText');
+    const dot = document.getElementById('roleIndicatorDot');
+    const tabOrders = document.getElementById('navTabOrders');
+    const tabAdmin = document.getElementById('navTabAdmin');
+    const supportClient = document.getElementById('support-client-view');
+    const supportOwner = document.getElementById('support-owner-view');
+
+    if (state.isOwner) {
+      badgeText.textContent = 'OWNER (1619490891)';
+      badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold tracking-wide transition-all border-red-500/50 bg-red-500/20 text-red-300';
+      dot.className = 'w-2 h-2 rounded-full bg-red-400 animate-pulse';
+      tabOrders.classList.remove('hidden');
+      tabAdmin.classList.remove('hidden');
+      supportClient.classList.add('hidden');
+      supportOwner.classList.remove('hidden');
+    } else {
+      badgeText.textContent = 'CLIENT';
+      badge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold tracking-wide transition-all border-emerald-500/40 bg-emerald-500/10 text-emerald-400';
+      dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      tabOrders.classList.add('hidden');
+      tabAdmin.classList.add('hidden');
+      supportClient.classList.remove('hidden');
+      supportOwner.classList.add('hidden');
+    }
+    updateOwnerBadges();
+  }
+
+  // Навигация
+  function switchNavTab(tabName) {
+    const pages = ['catalog', 'reviews', 'support', 'orders', 'admin', 'chat'];
+    pages.forEach(p => {
+      const el = document.getElementById(`view-${p}`);
+      if (el) el.classList.toggle('hidden', p !== tabName);
+    });
+
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      const isActive = btn.dataset.tab === tabName;
+      btn.classList.toggle('text-purple-400', isActive);
+      btn.classList.toggle('text-gray-400', !isActive);
+    });
+
+    if (tabName === 'orders') renderOrders();
+    if (tabName === 'reviews') renderReviews();
+    if (tabName === 'support' && state.isOwner) renderTickets();
+    if (tabName === 'admin') renderAdminPanel();
+    if (tabName === 'chat') {
+      renderChat();
+      scrollChatBottom();
+    }
+  }
+
+  // --- КАТАЛОГ И РАСЧЕТ СКИДКИ -% ---
+  function renderCatalog() {
+    const customContainer = document.getElementById('custom-services-container');
+    const tplContainer = document.getElementById('templates-container');
+    customContainer.innerHTML = '';
+    tplContainer.innerHTML = '';
+
+    const getDiscountBadge = (curr, def) => {
+      if (curr < def) {
+        const pct = Math.round((1 - curr / def) * 100);
+        return `<span class="bg-red-500 text-white font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(239,68,68,0.5)]">-${pct}%</span>`;
+      }
+      return '';
+    };
+
+    // 1. Бот
+    customContainer.innerHTML += `
+      <div class="glass-card p-4 relative overflow-hidden border border-purple-500/30">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-2xl">🤖</span>
+            <div>
+              <h4 class="font-bold text-sm text-white">${PRODUCTS_CATALOG.bot.title}</h4>
+              <div class="text-base font-bold text-purple-300">От ${state.prices.bot} ₽</div>
+            </div>
+          </div>
+          ${getDiscountBadge(state.prices.bot, DEFAULT_PRICES.bot)}
+        </div>
+        <p class="text-xs text-gray-400 mt-2">${PRODUCTS_CATALOG.bot.desc}</p>
+        <button onclick="openOrderModal('bot')" class="w-full mt-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs rounded-xl glow-btn">
+          Перейти к оплате
+        </button>
+      </div>
+    `;
+
+    // 2. Mini App
+    customContainer.innerHTML += `
+      <div class="glass-card p-4 relative overflow-hidden border border-cyan-500/30">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-2xl">📱</span>
+            <div>
+              <h4 class="font-bold text-sm text-white">${PRODUCTS_CATALOG.miniapp.title}</h4>
+              <div class="text-base font-bold text-cyan-300">От ${state.prices.miniapp} ₽</div>
+            </div>
+          </div>
+          ${getDiscountBadge(state.prices.miniapp, DEFAULT_PRICES.miniapp)}
+        </div>
+        <p class="text-xs text-gray-400 mt-2">${PRODUCTS_CATALOG.miniapp.desc}</p>
+        <button onclick="openOrderModal('miniapp')" class="w-full mt-3 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-bold text-xs rounded-xl glow-btn">
+          Перейти к оплате
+        </button>
+      </div>
+    `;
+
+    // Шаблоны
+    const templates = [
+      { key: 'shop', icon: '🛒' },
+      { key: 'clicker', icon: '⚡' },
+      { key: 'autopay', icon: '🔒' }
+    ];
+
+    templates.forEach(t => {
+      const prod = PRODUCTS_CATALOG[t.key];
+      const curPrice = state.prices[t.key];
+      const defPrice = DEFAULT_PRICES[t.key];
+
+      tplContainer.innerHTML += `
+        <div class="glass-card p-3 flex items-center justify-between border border-white/5">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">${t.icon}</span>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <span>${prod.title}</span>
+                ${getDiscountBadge(curPrice, defPrice)}
+              </div>
+              <div class="text-[10px] text-gray-400">${prod.desc}</div>
+            </div>
+          </div>
+          <div class="text-right flex-shrink-0 ml-2">
+            <div class="text-xs font-bold text-emerald-400">${curPrice} ₽</div>
+            <button onclick="openOrderModal('${t.key}')" class="mt-1 px-3 py-1 bg-white/10 hover:bg-purple-600/50 text-[11px] font-bold text-white rounded-lg transition-colors">
+              Купить
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // --- МОДАЛЬНОЕ ОКНО ЗАКАЗА И АНТИСПАМ ---
+  function openOrderModal(prodKey) {
+    selectedOrderProductKey = prodKey;
+    const prod = PRODUCTS_CATALOG[prodKey];
+    if (!prod) return;
+
+    document.getElementById('modalProductTitle').textContent = prod.title;
+    document.getElementById('orderBriefInput').value = '';
+    document.getElementById('orderSenderName').value = '';
+    document.getElementById('orderSenderTg').value = window.Telegram?.WebApp?.initDataUnsafe?.user?.username ? `@${window.Telegram.WebApp.initDataUnsafe.user.username}` : '';
+    document.getElementById('orderAgreeRules').checked = false;
+    document.getElementById('briefLengthCounter').textContent = '0 / 30 символов';
+
+    const container = document.getElementById('addonsContainer');
+    container.innerHTML = '';
+
+    prod.addons.forEach((addon, idx) => {
+      container.innerHTML += `
+        <label class="glass-card p-2.5 flex items-center justify-between text-xs cursor-pointer border border-white/5 hover:border-purple-500/40">
+          <div class="flex items-center space-x-2.5">
+            <input type="checkbox" class="order-addon-checkbox accent-purple-600 rounded" value="${addon.price}" data-name="${addon.name}" onchange="recalcOrderTotal()">
+            <span class="text-gray-200">${addon.name}</span>
+          </div>
+          <span class="text-purple-400 font-bold font-mono">+${addon.price} ₽</span>
+        </label>
+      `;
+    });
+
+    recalcOrderTotal();
+    const modal = document.getElementById('orderModalBackdrop');
+    modal.classList.remove('hidden');
+    setTimeout(() => document.body.classList.add('modal-open'), 10);
+  }
+
+  function closeOrderModal() {
+    document.body.classList.remove('modal-open');
+    setTimeout(() => {
+      document.getElementById('orderModalBackdrop').classList.add('hidden');
+    }, 280);
+  }
+
+  function recalcOrderTotal() {
+    let total = state.prices[selectedOrderProductKey] || 0;
+    document.querySelectorAll('.order-addon-checkbox:checked').forEach(cb => {
+      total += parseInt(cb.value);
+    });
+    document.getElementById('orderTotalDisplay').textContent = total;
+    document.getElementById('btnPayTotalDisplay').textContent = total;
+    validateOrderForm();
+  }
+
+  function validateOrderForm() {
+    const brief = document.getElementById('orderBriefInput').value.trim();
+    const name = document.getElementById('orderSenderName').value.trim();
+    const tgUser = document.getElementById('orderSenderTg').value.trim();
+    const agreed = document.getElementById('orderAgreeRules').checked;
+    const btn = document.getElementById('orderPaySubmitBtn');
+
+    document.getElementById('briefLengthCounter').textContent = `${brief.length} / 30 символов`;
+    if (brief.length < 30) {
+      document.getElementById('briefLengthCounter').className = 'text-[10px] text-red-400 text-right';
+    } else {
+      document.getElementById('briefLengthCounter').className = 'text-[10px] text-emerald-400 text-right';
+    }
+
+    if (brief.length >= 30 && name.length >= 2 && tgUser.length >= 2 && agreed) {
+      btn.removeAttribute('disabled');
+    } else {
+      btn.setAttribute('disabled', 'true');
+    }
+  }
+
+  function copyCardNumber() {
+    const card = '2202202361617339';
+    const input = document.createElement('input');
+    input.value = card;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    showInAppAlert('Скопировано!', 'Номер карты Сбербанка 2202202361617339 скопирован в буфер.');
+  }
+
+  function openRulesModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('rulesModal').classList.remove('hidden');
+  }
+  function closeRulesModal() {
+    document.getElementById('rulesModal').classList.add('hidden');
+  }
+
+  function handleOrderSubmit() {
+    const brief = document.getElementById('orderBriefInput').value.trim();
+    const name = document.getElementById('orderSenderName').value.trim();
+    let tgUser = document.getElementById('orderSenderTg').value.trim();
+    if (!tgUser.startsWith('@')) tgUser = `@${tgUser}`;
+
+    // 1. Проверка черного списка
+    const cleanUser = tgUser.replace('@', '').toLowerCase();
+    if (state.bannedUsers.map(u => u.toLowerCase()).includes(cleanUser)) {
+      return showInAppAlert('Доступ ограничен', 'Ваш Telegram-аккаунт заблокирован в Konder Shop за нарушение правил.');
+    }
+
+    // 2. Антиспам: проверка на дубликат активных заказов
+    const hasPendingOrder = state.orders.some(o => o.user.toLowerCase() === tgUser.toLowerCase() && o.status === 'pending');
+    if (hasPendingOrder) {
+      return showInAppAlert('Заказ уже на проверке', 'У вас уже есть заявка, ожидающая подтверждения оплаты. Дождитесь проверки владельцем!');
+    }
+
+    // 3. Формирование заказа
+    const prod = PRODUCTS_CATALOG[selectedOrderProductKey];
+    const total = parseInt(document.getElementById('orderTotalDisplay').textContent);
+    const chosenAddons = [];
+    document.querySelectorAll('.order-addon-checkbox:checked').forEach(cb => chosenAddons.push(cb.dataset.name));
+
+    const newOrder = {
+      id: Date.now(),
+      productKey: selectedOrderProductKey,
+      productTitle: prod.title,
+      total: total,
+      user: tgUser,
+      senderName: name,
+      brief: brief,
+      addons: chosenAddons,
+      status: 'pending',
+      time: new Date().toLocaleTimeString().slice(0, 5)
+    };
+
+    state.orders.unshift(newOrder);
+    localStorage.setItem('konder_orders', JSON.stringify(state.orders));
+
+    closeOrderModal();
+    updateOwnerBadges();
+    showInAppAlert(
+      'Заказ отправлен на проверку!',
+      `Сумма: ${total} ₽. Отправитель: ${name}. Владелец сверяет перевод. После подтверждения начнется диалог в чате.`
+    );
+  }
+
+  // --- ОБРАБОТКА ЗАКАЗОВ ВЛАДЕЛЬЦЕМ ---
+  function renderOrders() {
+    const container = document.getElementById('orders-list-container');
+    container.innerHTML = '';
+
+    if (state.orders.length === 0) {
+      container.innerHTML = '<div class="text-xs text-gray-500 text-center py-8">Входящих заказов пока нет</div>';
+      return;
+    }
+
+    state.orders.forEach(o => {
+      const isPending = o.status === 'pending';
+      const isCompleted = o.status === 'completed';
+
+      container.innerHTML += `
+        <div class="glass-card p-3.5 space-y-2 border ${isPending ? 'border-amber-500/30' : isCompleted ? 'border-cyan-500/30' : 'border-emerald-500/30'}">
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="text-xs font-bold text-purple-300 font-mono">${escapeHtml(o.user)}</span>
+              <span class="text-[10px] text-gray-400 ml-1.5 font-mono">${o.time}</span>
+              <div class="text-[11px] text-gray-300">Плательщик: <span class="text-cyan-300 font-semibold">${escapeHtml(o.senderName)}</span></div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded ${isPending ? 'bg-amber-500/20 text-amber-300' : isCompleted ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}">
+              ${isPending ? 'Ожидает оплаты' : isCompleted ? 'Завершен (/end)' : 'В работе'}
+            </span>
+          </div>
+
+          <div class="bg-black/40 p-2.5 rounded-xl border border-white/5 space-y-1">
+            <div class="text-xs font-bold text-white">${escapeHtml(o.productTitle)} — <span class="text-purple-300">${o.total} ₽</span></div>
+            <div class="text-[11px] text-gray-400">Опции: ${o.addons.length ? o.addons.join(', ') : 'Без допов'}</div>
+            <div class="text-[11px] text-gray-300 pt-1 border-t border-white/5">
+              <span class="text-gray-400">ТЗ:</span> ${escapeHtml(o.brief)}
+            </div>
+          </div>
+
+          ${isPending ? `
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button onclick="confirmOrderPayment(${o.id})" class="py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl">
+                Подтвердить
+              </button>
+              <button onclick="rejectOrderPayment(${o.id})" class="py-2 bg-white/10 hover:bg-red-500 text-white font-bold text-xs rounded-xl">
+                Отклонить
+              </button>
+            </div>
+          ` : `
+            <button onclick="openChatFromOrder('${o.user}')" class="w-full py-1.5 bg-purple-600/30 text-purple-200 text-xs font-bold rounded-xl flex items-center justify-center">
+              Открыть чат с заказчиком
+            </button>
+          `}
+        </div>
+      `;
+    });
+  }
+
+  function confirmOrderPayment(id) {
+    const o = state.orders.find(item => item.id === id);
+    if (!o) return;
+
+    o.status = 'active';
+    localStorage.setItem('konder_orders', JSON.stringify(state.orders));
+
+    state.chatMessages.push({
+      sender: 'shop',
+      text: `Здравствуйте, ${o.user}! Оплата заказа "${o.productTitle}" (${o.total} ₽) подтверждена Konder Shop. Мы приступаем к реализации по вашему ТЗ.`,
+      time: new Date().toLocaleTimeString().slice(0, 5)
+    });
+    localStorage.setItem('konder_chat', JSON.stringify(state.chatMessages));
+
+    renderOrders();
+    updateOwnerBadges();
+    showInAppAlert('Оплата подтверждена', `Заказ ${o.productTitle} переведен в работу. Переходим в чат.`);
+    switchNavTab('chat');
+  }
+
+  function rejectOrderPayment(id) {
+    state.orders = state.orders.filter(item => item.id !== id);
+    localStorage.setItem('konder_orders', JSON.stringify(state.orders));
+    renderOrders();
+    updateOwnerBadges();
+    showInAppAlert('Заказ отклонен', 'Неподтвержденная заявка удалена.');
+  }
+
+  function updateOwnerBadges() {
+    const pendingCount = state.orders.filter(o => o.status === 'pending').length;
+    const badge = document.getElementById('ordersRedBadge');
+    if (pendingCount > 0 && state.isOwner) {
+      badge.classList.remove('hidden');
+      badge.textContent = pendingCount > 9 ? '9+' : pendingCount;
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  // --- ЧАТ И КОМАНДА /end ---
+  function openChatFromOrder(user) {
+    document.getElementById('chatCompanionTitle').textContent = `Диалог: ${user}`;
+    switchNavTab('chat');
+  }
+
+  function renderChat() {
+    const box = document.getElementById('chatMessagesBox');
+    if (state.chatMessages.length === 0) {
+      box.innerHTML = '<div class="text-xs text-gray-500 text-center py-10">Сообщений пока нет. Начните диалог!</div>';
+      return;
+    }
+
+    box.innerHTML = state.chatMessages.map(m => {
+      if (m.sender === 'system') {
+        return `
+          <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-center text-xs text-cyan-200">
+            ${escapeHtml(m.text)}
+          </div>
+        `;
+      }
+      const isShop = m.sender === 'shop';
+      return `
+        <div class="flex flex-col ${isShop ? 'items-end' : 'items-start'}">
+          <div class="${isShop ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-none' : 'bg-white/10 text-gray-200 rounded-tl-none'} px-3 py-2 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-md">
+            <div>${escapeHtml(m.text)}</div>
+            <div class="text-[9px] text-right mt-1 opacity-70 font-mono">${m.time}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function handleSendChat(e) {
+    e.preventDefault();
+    const inp = document.getElementById('chatTextInput');
+    const txt = inp.value.trim();
+    if (!txt) return;
+
+    // ОБРАБОТКА КОМАНДЫ /end ВЛАДЕЛЬЦЕМ
+    if (txt === '/end') {
+      if (!state.isOwner) {
+        return showInAppAlert('Ошибка доступа', 'Команда /end доступна только владельцу Konder Shop для сдачи заказа.');
+      }
+
+      // Поиск активного заказа
+      const activeOrder = state.orders.find(o => o.status === 'active');
+      if (!activeOrder) {
+        return showInAppAlert('Нет активных заказов', 'Нет подтвержденного заказа в статусе "В работе" для завершения.');
+      }
+
+      activeOrder.status = 'completed';
+      localStorage.setItem('konder_orders', JSON.stringify(state.orders));
+
+      state.chatMessages.push({
+        sender: 'system',
+        text: `🔒 Заказ "${activeOrder.productTitle}" успешно завершен! Покупателю открыта форма публикации отзыва во вкладке "Отзывы".`
+      });
+      localStorage.setItem('konder_chat', JSON.stringify(state.chatMessages));
+
+      inp.value = '';
+      renderChat();
+      scrollChatBottom();
+      renderReviews();
+      renderOrders();
+      return showInAppAlert('Сделка завершена!', `Заказ ${activeOrder.productTitle} закрыт. Клиент теперь может оставить отзыв по шаблону.`);
+    }
+
+    // Обычное сообщение
+    state.chatMessages.push({
+      sender: state.isOwner ? 'shop' : 'client',
+      text: txt,
+      time: new Date().toLocaleTimeString().slice(0, 5)
+    });
+    localStorage.setItem('konder_chat', JSON.stringify(state.chatMessages));
+
+    inp.value = '';
+    renderChat();
+    scrollChatBottom();
+  }
+
+  function scrollChatBottom() {
+    const box = document.getElementById('chatMessagesBox');
+    setTimeout(() => { box.scrollTop = box.scrollHeight; }, 40);
+  }
+
+  // --- ОТЗЫВЫ ПО ШАБЛОНУ ПОСЛЕ /end ---
+  function renderReviews() {
+    const list = document.getElementById('reviews-list');
+    const avgDisplay = document.getElementById('avgRatingDisplay');
+    const lockBox = document.getElementById('review-lock-container');
+    const formBox = document.getElementById('review-unlocked-form');
+    const select = document.getElementById('revProductSelect');
+
+    list.innerHTML = '';
+
+    if (state.reviews.length === 0) {
+      list.innerHTML = `
+        <div class="glass-card p-5 text-center text-xs text-gray-400">
+          Пока отзывов нет. Станьте первым клиентом после завершения заказа!
+        </div>
+      `;
+      avgDisplay.textContent = '5.0';
+    } else {
+      let sum = 0;
+      state.reviews.forEach(r => {
+        sum += r.stars;
+        list.innerHTML += `
+          <div class="glass-card p-3 space-y-1.5 border border-white/5">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-purple-300 font-mono">${escapeHtml(r.user)}</span>
+              <span class="text-amber-400 text-xs">${'★'.repeat(r.stars)}</span>
+            </div>
+            <div class="text-[11px] font-semibold text-cyan-300">${escapeHtml(r.product)}</div>
+            <p class="text-xs text-gray-200 leading-relaxed">${escapeHtml(r.comment)}</p>
+          </div>
+        `;
+      });
+      avgDisplay.textContent = (sum / state.reviews.length).toFixed(1);
+    }
+
+    // Проверяем завершённые заказы, по которым отзыв еще НЕ оставлен
+    const eligibleOrders = state.orders.filter(o => o.status === 'completed' && !state.reviewedOrderIds.includes(o.id));
+
+    if (eligibleOrders.length > 0) {
+      lockBox.classList.add('hidden');
+      formBox.classList.remove('hidden');
+      select.innerHTML = eligibleOrders.map(o => `<option value="${o.id}">${escapeHtml(o.productTitle)} (#${o.id.toString().slice(-4)})</option>`).join('');
+    } else {
+      const anyCompleted = state.orders.some(o => o.status === 'completed');
+      if (anyCompleted && state.reviewedOrderIds.length > 0) {
+        lockBox.innerHTML = '✅ <b>Отзыв уже оставлен!</b> Спасибо за вашу оценку. Вы сможете оставить новый отзыв после следующей завершённой сделки.';
+        lockBox.className = 'bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-300 leading-relaxed';
+      } else {
+        lockBox.innerHTML = '🔒 Оставить отзыв можно только по завершённому заказу после ввода администратором команды <code class="text-white font-mono bg-black/40 px-1 py-0.5 rounded">/end</code> в чате.';
+        lockBox.className = 'bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-300 leading-relaxed';
+      }
+      lockBox.classList.remove('hidden');
+      formBox.classList.add('hidden');
+    }
+  }
+
+  function setFormStars(val) {
+    formSelectedStars = val;
+    document.querySelectorAll('#starSelectorBox .star-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', idx < val);
+    });
+  }
+
+  function handleReviewSubmit(e) {
+    e.preventDefault();
+    const orderId = parseInt(document.getElementById('revProductSelect').value);
+    const targetOrder = state.orders.find(o => o.id === orderId);
+    const comm = document.getElementById('revCommentInput').value.trim();
+
+    if (!targetOrder || !comm) return;
+
+    if (state.reviewedOrderIds.includes(orderId)) {
+      return showInAppAlert('Внимание', 'По этому заказу отзыв уже был оставлен ранее.');
+    }
+
+    state.reviews.unshift({
+      product: targetOrder.productTitle,
+      stars: formSelectedStars,
+      comment: comm,
+      user: targetOrder.user || '@client'
+    });
+    localStorage.setItem('konder_reviews', JSON.stringify(state.reviews));
+
+    // Помечаем этот конкретный заказ как оцененный
+    state.reviewedOrderIds.push(orderId);
+    localStorage.setItem('konder_reviewed_order_ids', JSON.stringify(state.reviewedOrderIds));
+
+    document.getElementById('revCommentInput').value = '';
+    renderReviews();
+    showInAppAlert('Спасибо за отзыв!', 'Ваш отзыв успешно опубликован в Konder Shop.');
+  }
+
+  // --- ТЕХПОДДЕРЖКА / ТИКЕТЫ ---
+  function handleSendTicket(e) {
+    e.preventDefault();
+    const user = document.getElementById('ticketUserInp').value.trim();
+    const msg = document.getElementById('ticketMsgInp').value.trim();
+    if (!user || !msg) return;
+
+    state.tickets.unshift({
+      id: Date.now(),
+      user: user.startsWith('@') ? user : `@${user}`,
+      text: msg,
+      time: new Date().toLocaleTimeString().slice(0, 5)
+    });
+    localStorage.setItem('konder_tickets', JSON.stringify(state.tickets));
+
+    document.getElementById('ticketMsgInp').value = '';
+    showInAppAlert('Тикет отправлен', 'Обращение зарегистрировано. Владелец ответит в самое ближайшее время.');
+    if (state.isOwner) renderTickets();
+  }
+
+  function renderTickets() {
+    const list = document.getElementById('owner-tickets-list');
+    const badge = document.getElementById('ticketCountBadge');
+    list.innerHTML = '';
+    badge.textContent = state.tickets.length;
+
+    if (state.tickets.length === 0) {
+      list.innerHTML = '<div class="text-xs text-gray-500 text-center py-6">Жалоб и тикетов нет</div>';
+      return;
+    }
+
+    state.tickets.forEach(t => {
+      list.innerHTML += `
+        <div onclick="inspectTicket(${t.id})" class="glass-card p-3 space-y-1 cursor-pointer hover:border-purple-500/50 transition-all">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-white font-mono">${escapeHtml(t.user)}</span>
+            <span class="text-[10px] text-gray-400 font-mono">${t.time}</span>
+          </div>
+          <p class="text-xs text-gray-300 truncate">${escapeHtml(t.text)}</p>
+          <div class="text-[10px] text-cyan-400 font-semibold pt-1">Нажмите для полного текста ➔</div>
+        </div>
+      `;
+    });
+  }
+
+  function inspectTicket(id) {
+    const t = state.tickets.find(item => item.id === id);
+    if (!t) return;
+
+    document.getElementById('inspectTicketTime').textContent = t.time;
+    document.getElementById('inspectTicketUser').textContent = t.user;
+    document.getElementById('inspectTicketText').textContent = t.text;
+    document.getElementById('ticketInspectModal').classList.remove('hidden');
+  }
+  function closeTicketInspect() {
+    document.getElementById('ticketInspectModal').classList.add('hidden');
+  }
+
+  // --- АДМИН-ПАНЕЛЬ: ЦЕНЫ И БАНЫ ---
+  function renderAdminPanel() {
+    const container = document.getElementById('admin-prices-list');
+    const banBox = document.getElementById('bannedUsersContainer');
+    container.innerHTML = '';
+
+    const labels = {
+      bot: 'TG Бот',
+      miniapp: 'Mini App',
+      shop: 'Шаблон Shop',
+      clicker: 'Кликер',
+      autopay: 'Автоприем'
+    };
+
+    Object.keys(state.prices).forEach(key => {
+      const cur = state.prices[key];
+      const def = DEFAULT_PRICES[key];
+      container.innerHTML += `
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white/5 text-xs">
+          <div>
+            <span class="font-bold text-white">${labels[key]}</span>
+            <span class="text-gray-400 text-[10px] ml-1">(База: ${def} ₽)</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <input type="number" value="${cur}" onchange="handlePriceUpdate('${key}', this.value)" class="w-20 bg-black/60 border border-purple-500/40 rounded-lg px-2 py-1 text-right text-xs text-white font-mono">
+            <span class="text-gray-300">₽</span>
+          </div>
+        </div>
+      `;
+    });
+
+    // Черный список
+    if (state.bannedUsers.length === 0) {
+      banBox.innerHTML = '<span class="text-gray-500">Список пуст</span>';
+    } else {
+      banBox.innerHTML = state.bannedUsers.map(u => `
+        <span class="bg-red-500/20 text-red-300 px-2 py-0.5 rounded border border-red-500/40 font-mono text-[11px] flex items-center">
+          @${escapeHtml(u)}
+          <button onclick="unbanUser('${u}')" class="ml-1.5 text-white hover:text-red-400">✕</button>
+        </span>
+      `).join('');
+    }
+  }
+
+  function handlePriceUpdate(key, val) {
+    state.prices[key] = parseInt(val) || 0;
+    localStorage.setItem('konder_prices', JSON.stringify(state.prices));
+    renderCatalog();
+  }
+
+  function handleBanUser() {
+    const inp = document.getElementById('blacklistInput');
+    const val = inp.value.trim().replace('@', '');
+    if (!val) return;
+
+    if (!state.bannedUsers.includes(val)) {
+      state.bannedUsers.push(val);
+      localStorage.setItem('konder_bans', JSON.stringify(state.bannedUsers));
+      inp.value = '';
+      renderAdminPanel();
+      showInAppAlert('Пользователь забанен', `@${val} добавлен в черный список.`);
+    }
+  }
+
+  function unbanUser(u) {
+    state.bannedUsers = state.bannedUsers.filter(item => item !== u);
+    localStorage.setItem('konder_bans', JSON.stringify(state.bannedUsers));
+    renderAdminPanel();
+  }
+
+  // --- КАСТОМНЫЕ УВЕДОМЛЕНИЯ БЕЗ alert() ---
+  function showInAppAlert(title, msg) {
+    document.getElementById('inAppAlertTitle').textContent = title;
+    document.getElementById('inAppAlertMsg').textContent = msg;
+    document.getElementById('inAppAlert').classList.remove('hidden');
+  }
+  function closeInAppAlert() {
+    document.getElementById('inAppAlert').classList.add('hidden');
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[s]);
+  }
+
+  document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
