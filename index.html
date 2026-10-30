@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Konder Shop</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070814;
+      --card-bg: rgba(18, 22, 45, 0.72);
+      --card-border: rgba(139, 92, 246, 0.35);
+      --accent-purple: #8B5CF6;
+      --accent-glow: #C084FC;
+      --accent-cyan: #06B6D4;
+      --accent-green: #10B981;
+      --accent-red: #EF4444;
+      --text-main: #FFFFFF;
+      --text-muted: #94A3B8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+    
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      padding-bottom: 120px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Анимированный космический фон с живыми сферами */
+    .space-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.45;
+      animation: floatOrb 14s infinite alternate ease-in-out;
+    }
+    .orb-1 {
+      width: 300px;
+      height: 300px;
+      background: #7C3AED;
+      top: -60px;
+      left: -60px;
+    }
+    .orb-2 {
+      width: 260px;
+      height: 260px;
+      background: #0284C7;
+      bottom: 120px;
+      right: -50px;
+      animation-delay: -5s;
+    }
+    .orb-3 {
+      width: 220px;
+      height: 220px;
+      background: #059669;
+      top: 45%;
+      left: 20%;
+      opacity: 0.25;
+      animation-delay: -9s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, 40px) scale(1.1); }
+      100% { transform: translate(-25px, 20px) scale(0.95); }
+    }
+
+    header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 12, 26, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(139, 92, 246, 0.25);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #FFF 20%, var(--accent-glow) 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px
